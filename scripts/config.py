@@ -12,7 +12,8 @@ INEGI={
 INGRESOS_FISCALES= {
     'INGRESO_GASTO_SHCP_hist': 'https://www.secciones.hacienda.gob.mx/work/models/estadisticas_oportunas/datos_abiertos_eopf/ingreso_gasto_finan_hist.zip',
     'INGRESO_GASTO_SHCP_actual': 'https://www.secciones.hacienda.gob.mx/work/models/estadisticas_oportunas/datos_abiertos_eopf/ingreso_gasto_finan.zip',
-    'RELEVANT_KEYS_SHCP': {'XAB': 'ingresos_presupuestarios_neto',
+    'RELEVANT_KEYS_SHCP': {'XAB': 'ingresos_sector_publico_neto',
+                           'XBB':  'ingresos_gobierno_federal_neto',
                            'XDB34': 'isr_neto',
                            'XAB1120': 'iva_neto',
                            'XAB1130': 'ieps_neto',

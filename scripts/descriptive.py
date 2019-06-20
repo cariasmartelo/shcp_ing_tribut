@@ -6,6 +6,7 @@ Produce graphs, test augmented dickey fuller for stationarity, make transormatio
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from statsmodels.tsa.stattools import acf, pacf, adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
@@ -15,7 +16,8 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 def plot_series(df, cols=None, title=None, subtitle=None, legend=None, save_to=None, 
-                figsize=(12, 8)):
+                min_date=None, max_date=None, ticks='auto', ticks_freq=1, figsize=(12, 8),
+                legend_out=False):
     '''
     Plot columns of df indicated using matplotlib. Title and Subtitle are used for
     the title.
@@ -25,26 +27,51 @@ def plot_series(df, cols=None, title=None, subtitle=None, legend=None, save_to=N
         title: str
         subtitle: str
         legend: [str]
+        save_to: 'str'
+        min_date: str or datetime
+        max_date: str or datetime
+        ticks: {'auto', 'yearly', 'monthly'}
     Output
         Plot
-        .png if indicated
+        png if indicated
     '''
     if isinstance(df, pd.core.series.Series):
         df = df.to_frame()
     if not cols:
         cols = df.columns
+    if min_date:
+        df = df.loc[df.index >= min_date]
+    if max_date:
+        df = df.loc[df.index <= max_date]
+
     fig, ax = plt.subplots(figsize=figsize)
     ax.plot(df[cols])
+    if not ticks == 'auto':
+        if ticks == 'yearly':
+            loc = mdates.YearLocator(ticks_freq)
+            ax.xaxis.set_major_locator(loc)
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(40)
+        elif ticks == 'monthly':
+            loc = mdates.MonthLocator(interval = ticks_freq)
+            date_fmt = mdates.DateFormatter('%Y-%m')
+            ax.xaxis.set_major_formatter(date_fmt)
+            ax.xaxis.set_major_locator(loc)
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(90)
+    ax.grid()
     if not legend is False:
         if not legend:
             legend = cols
-        ax.legend(legend)
+        if legend_out:
+            ax.legend(legend, bbox_to_anchor=(1.04,1), loc="upper left")
+        else:
+            ax.legend(legend)
     if title:
         if subtitle:
             ax.set_title('{}\n{}'.format(title, subtitle))
         else:
             ax.set_title('{}'.format(title))
-    ax.grid()
     if save_to:
         plt.savefig(save_to)
     plt.show()
@@ -123,6 +150,34 @@ def transformation(df, col, transform, window=None):
         return transformation(df, col, 'log').rolling(window = window,
                                                  center = False).mean().diff()
 
+def revert_transformation(transformed, applied_transformation, initial_value=None,
+                          initial_date=None):
+    '''
+    revert the transformation of a series to its original value.
+    Inputs:
+        serie: Series
+        applied_transformation: str {''}
+    '''
+    assert ((applied_transformation.endswith('diff') and initial_value) or
+            (not applied_transformation.endswith('diff') and (not initial_value))),\
+            'Must give initial value if transformation applied was differences'
+
+    serie = transformed.copy()
+    if initial_value:
+        serie.loc[pd.to_datetime(initial_date)] = initial_value
+        serie = serie.sort_index()
+
+    if applied_transformation == 'diff':
+        return serie.cumsum()
+
+    if applied_transformation == 'log':
+        return np.exp(serie)
+
+    if applied_transformation == 'log_diff':
+        serie.iloc[0] = np.log(serie.iloc[0])
+        serie = serie.cumsum()
+        return np.exp(serie)
+
 def plot_acf_pacf(series, lags, col=None, save_to=None):
     '''
     Plot ACF and PACF of serie.
@@ -142,6 +197,3 @@ def plot_acf_pacf(series, lags, col=None, save_to=None):
     if save_to:
         plt.savefig(save_to)
     plt.show()
-
-# def estimate_arima(series)
-
