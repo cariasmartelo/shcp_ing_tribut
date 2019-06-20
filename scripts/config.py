@@ -2,6 +2,7 @@
 SHCP UPIT Forecasting Public Revenue
 Key and params of model
 '''
+
 INEGI={
     'INEGI_URL': [('https://www.inegi.org.mx/app/api/indicadores/desarrolladores/'
                    'jsonxml/INDICATOR/'), '/es/00000/false/BIE/2.0/', '?type=json'],

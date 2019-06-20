@@ -6,7 +6,9 @@ Produce graphs, test augmented dickey fuller for stationarity, make transormatio
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import acf, pacf, adfuller
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+
 
 
 from pandas.plotting import register_matplotlib_converters
@@ -18,7 +20,7 @@ def plot_series(df, cols=None, title=None, subtitle=None, legend=None, save_to=N
     Plot columns of df indicated using matplotlib. Title and Subtitle are used for
     the title.
     Inputs:
-        df: DataFrame
+        df: DataFrame or Serie
         cols: [str]
         title: str
         subtitle: str
@@ -120,3 +122,26 @@ def transformation(df, col, transform, window=None):
     if transform == 'log_moving_avg_diff':
         return transformation(df, col, 'log').rolling(window = window,
                                                  center = False).mean().diff()
+
+def plot_acf_pacf(series, lags, col=None, save_to=None):
+    '''
+    Plot ACF and PACF of serie.
+    Inputs:
+    serie: Pandas Serie or DF
+    lags: int
+    col: str
+    '''
+    if isinstance(series, pd.core.frame.DataFrame):
+        series = series[col]
+
+    fig, ax = plt.subplots(nrows=2)
+    plot_acf(series, lags=lags, ax= ax[0])
+    ax[0].set_xticks(np.arange(0, lags+1))
+    plot_pacf(series, lags=lags, ax=ax[1])
+    ax[1].set_xticks(np.arange(0, lags+1))
+    if save_to:
+        plt.savefig(save_to)
+    plt.show()
+
+# def estimate_arima(series)
+
