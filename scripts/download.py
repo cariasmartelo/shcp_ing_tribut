@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
+from dateutil.relativedelta import relativedelta
 import os
 import requests
 import config
@@ -32,7 +33,7 @@ def load_fiscal_income():
 
     return fiscal_total
 
-def get_files(inpc=False, fiscal_current=False, fiscal_hist=False):
+def get_files(inpc_2018=False, pibr_2013=False, fiscal_current=False, fiscal_hist=False):
     '''
     Run functions to download csv files. If update only, it does not
     download historic fiscal data.
@@ -41,34 +42,43 @@ def get_files(inpc=False, fiscal_current=False, fiscal_hist=False):
     Output:
         Saves csv
     '''
-    if inpc:
-        download_inpc()
+    if inpc_2018:
+        download_inegi('inpc_2018')
+    if pibr_2013:
+        download_inegi('pibr_2013')
     if fiscal_current:
         download_fiscal_data()
     if fiscal_hist:
         download_fiscal_data(current=False)
 
-def download_inpc(csv_file='../inputs/inpc.csv'):
+
+def download_inegi(indicator, filepath=None):
     '''
-    Download INPC from INEGI.
-    Inputs:
-        csv_file: str
+    Download data from INEGI given an indicator, using the names from config.py
+    Indicator:
+        str
     Output:
-        Saves csv
+        DF
     '''
+    filepath = '../inputs/'
+    if not os.path.exists(filepath):
+        os.mkdir(filepath)
+    csv_path = os.path.join(filepath, indicator + '.csv')
+
     url0, url1, url2 = config.INEGI['INEGI_URL']
-    url = url0 + config.INEGI['INEGI_INPC'] + url1 + \
+    url = url0 + config.INEGI[indicator] + url1 + \
           config.INEGI['INEGI_TOKEN'] + url2
     response = requests.get(url)
     df = pd.DataFrame(response.json()['Series'][0]['OBSERVATIONS'])
     df = df[['TIME_PERIOD', 'OBS_VALUE']]
     df.rename(columns={'TIME_PERIOD':'fecha', 
-                       'OBS_VALUE': 'inpc_2018'},
+                       'OBS_VALUE': indicator},
                        inplace=True)
-    df['inpc_2018'] = pd.to_numeric(df['inpc_2018'])
-    df.to_csv(csv_file, index=False)
+    df[indicator] = pd.to_numeric(df[indicator])
+    df.to_csv(csv_path, index=False)
     last_value = df['fecha'].max()
-    print('Downloaded INPC in {}, last value: {}'.format(csv_file, last_value))
+    print('Downloaded {} in {}, last value: {}'.format(
+        indicator, csv_path, last_value))
 
 def download_fiscal_data(current=True):
     '''
@@ -87,7 +97,7 @@ def download_fiscal_data(current=True):
     z.extractall('../inputs/')
     print('Downloaded {} in ../inputs/'.format(key))
 
-def load_inpc(csv_file ='../inputs/inpc.csv'):
+def load_inpc(csv_file ='../inputs/inpc_2018.csv'):
     '''
     Load INPC as DF.
     Inputs:
@@ -100,6 +110,39 @@ def load_inpc(csv_file ='../inputs/inpc.csv'):
     df.set_index(df['fecha'], inplace=True)
     df.drop('fecha', axis=1, inplace=True)
     df = df.loc['1990-01-01':]
+
+    return df
+
+def load_pib_r(csv_file ='../inputs/pibr_2013.csv'):
+    '''
+    Load PIB_r as DF.
+    Inputs:
+        csv_file: str
+    Output:
+        DF
+    '''
+
+    df = pd.read_csv(csv_file)
+    # Fecha es formato 'Y/Q'
+    df['fecha'] = pd.to_datetime(df['fecha'])
+    df['year'] = df['fecha'].map(lambda x: x.year)
+    # Para pasar de quarter a mes hay que multiplicar (3*(Q-1) + 1)
+    df['month'] = df['fecha'].map(lambda x: 3*(x.month -1) + 1)
+    df['day'] = 1
+    df['fecha'] = pd.to_datetime(df[['year', 'month', 'day']])
+    df.set_index(df['fecha'], inplace=True)
+    df = df['pibr_2013']
+    df = df.loc['1989-01-01':]
+    df = df.asfreq(freq='QS')
+    # Insert one extra quarter with NaN values
+    new_quarter = df.index.max() + relativedelta(months = 3)
+    df.loc[new_quarter] = np.NaN
+    # Resample DF into months, using forward fill.
+    df = (df.resample('MS').pad()).to_frame()
+    # Convert to real pesos of 2018 dividing by inpc(base=2018) of 2013-12-01
+    inpc = load_inpc()
+    inf_inv_2018_2013 = float(inpc.loc['2013-12-01'])
+    df['pibr_2018'] = (df['pibr_2013'] / inf_inv_2018_2013) * 100   
 
     return df
 
@@ -124,8 +167,9 @@ def load_fiscal_data(fiscal_csv):
     df.set_index(df['fecha'], inplace=True)
     df = df.pivot(columns='clave_de_concepto', values='monto')
     df.rename(columns=relevant_keys_d, inplace=True)
-    df = df.div(1000000)
-    df = df.add_suffix('_(mmdp)')
+    # Convertir a millones de pesos
+    df = df.div(1000)
+    df = df.add_suffix('_(mdp)')
     del df.columns.name
 
     return df
