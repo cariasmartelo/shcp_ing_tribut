@@ -30,6 +30,7 @@ def load_fiscal_income():
     fiscal_real.drop('inpc_2018', axis=1, inplace=True)
     fiscal_real = fiscal_real.add_suffix('_r')
     fiscal_total = pd.concat([fiscal_total, fiscal_real], axis=1)
+    fiscal_total = fiscal_total.asfreq(freq='MS')
 
     return fiscal_total
 
@@ -142,7 +143,8 @@ def load_pib_r(csv_file ='../inputs/pibr_2013.csv'):
     # Convert to real pesos of 2018 dividing by inpc(base=2018) of 2013-12-01
     inpc = load_inpc()
     inf_inv_2018_2013 = float(inpc.loc['2013-12-01'])
-    df['pibr_2018'] = (df['pibr_2013'] / inf_inv_2018_2013) * 100   
+    df['pibr_2018'] = (df['pibr_2013'] / inf_inv_2018_2013) * 100
+    df = df.asfreq(freq='MS')  
 
     return df
 

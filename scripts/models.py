@@ -10,83 +10,127 @@ import statsmodels.api as sm
 from statsmodels.tsa.arima_model import ARIMA, ARMA
 from dateutil.relativedelta import relativedelta
 import descriptive
+import matplotlib as mpl
+from fbprophet import Prophet
 
-def run_model(model_name, model_params, outcome_var, outcome_var_tr, global_params, dynamic=True):
+from mechanical import ELASTICITY
+
+def run_mechanical(outcome_var, gdp, model_params, global_params, plot_elast):
     '''
     '''
-    # Obtener los splits para hacer las predicciones
-    model_dict = {'ARIMA': ARIMA,
-                  'SARIMA': sm.tsa.statespace.SARIMAX}
-    model = model_dict[model_name]
+    model_name = 'ELASTICITY'
     results_l = []
     time_splits = pd.date_range(start=global_params['pred_start'],
                                 end=global_params['pred_end'],
                                 freq=global_params['pred_period'])
-
-    # Correr modelo para cada una de las especificaciones en model params
     for param in model_params:
-        # Print Header
-        description = model_name + ': '
-        for k, val in param.items():
-            description += k + ' ' + str(val) + ', '
-        print(description)
-        model_obj = model(outcome_var_tr, **param)
-        results = model_obj.fit()
-        fitted = results.fittedvalues
-        rmse, mae = compute_accuracy_scores(outcome_var_tr, fitted,
-                                           False)
-        #append results to results list
-        results_l.append(
-        get_dict_results(outcome_var_tr, fitted, model_name, param,
-                            transformation = global_params['transformation']))
-        plot_prediction(outcome_var_tr, fitted.rename('pred'), model_name, [(rmse, mae)],
-                        global_params['outcome_col_transformed'],
-                        param, legend_out=True, ticks= 'yearly')
+        print_model_param(param, model_name)
 
+        elasticity = ELASTICITY(outcome_var, gdp, **param)
+        results = elasticity.fit()
+        outcome_var_name = " ".join(global_params['outcome_col'].split('_'))
 
+        # Plot elasticity and growth rates.
+        if plot_elast:
+            elasticity.plot(outcome_var_name)
 
-        # Crear DF en el que se van a poner todas las predicciones. Tanto para la variable
-        # transformada como para la variable en niveles.
-        predictions_transformed = pd.DataFrame(index=outcome_var_tr.index)
-        predictions_transformed_accuracy = []
         predictions = pd.DataFrame(index=outcome_var.index)
         predictions_accuracy = []
-
         for i, split_date in enumerate(time_splits):
             if i == len(time_splits) - 1:
                 break
             #Iniciio de prediccion y final de predicción para obtener predicción
             start = split_date
             end = time_splits[i + 1] - relativedelta(months=1)
-            model_obj = model(
-                outcome_var_tr.loc[outcome_var_tr.index < start], **param)
-            results = model_obj.fit()
-            prediction_transformed = results.predict(start=start, end=end,
-                                                         dynamic=dynamic)
-            #append results to results list
+            prediction = results.predict(start=start, end=end)
+            results_l.append(
+            get_dict_results(outcome_var, prediction, 'ELASTICITY',
+                                param, split_date=split_date,
+                                pred_period=global_params['pred_period'],
+                                transformation = 'levels'))
+            predictions_accuracy.append(
+                compute_accuracy_scores(outcome_var, prediction, False))
+            predictions = predictions.merge(
+                prediction.rename(
+                    model_name + '_pred_' + str(i) + ' ELAST {0:.2f}'
+                    .format(elasticity.elasticity_used)),
+                left_index=True, right_index=True, how='outer')
+        graph_min_date = (pd.to_datetime(global_params['pred_start'])
+                                        - relativedelta(years=1))
+
+        plot_prediction(
+            outcome_var, predictions, model_name,
+            predictions_accuracy,
+            global_params['outcome_col_transformed'],
+            param, legend_out=True, min_date=graph_min_date,
+            ticks='monthly', ticks_freq=2)
+    return results_l
+
+
+def run_prophet(outcome_var, outcome_var_tr, 
+                model_params, global_params, prophet_plot):
+    '''
+    '''
+
+    model_name = 'PROPHET'
+    results_l = []
+    time_splits = pd.date_range(start=global_params['pred_start'],
+                                end=global_params['pred_end'],
+                                freq=global_params['pred_period'])
+    for param in model_params:
+        print_model_param(param, model_name)
+
+        predictions_transformed = pd.DataFrame(index=outcome_var_tr.index)
+        predictions_transformed_accuracy = []
+        predictions = pd.DataFrame(index=outcome_var.index)
+        predictions_accuracy = []
+        for i, split_date in enumerate(time_splits):
+            if i == len(time_splits) - 1:
+                break
+            #Iniciio de prediccion y final de predicción para obtener predicción
+            start = split_date
+            end = time_splits[i + 1] - relativedelta(months=1)
+            initial_date = start - relativedelta(months=1)
+
+            prophet_df = outcome_var_tr.loc[outcome_var.index < start]\
+                .to_frame().reset_index()
+            prophet_df = prophet_df.rename(columns={
+                'fecha':'ds', global_params['outcome_col_transformed']: 'y'})
+
+            m = Prophet(**param)
+            m.fit(prophet_df)
+            future = m.make_future_dataframe(periods=12, freq='MS')
+            forecast = m.predict(future)
+            if prophet_plot:
+                m.plot(forecast)
+            prediction_transformed = forecast.loc[forecast['ds'].isin(
+                pd.date_range(initial_date, end, freq='MS'))]
+            prediction_transformed.set_index(prediction_transformed['ds'], inplace=True)
+            prediction_transformed = prediction_transformed['yhat']
             results_l.append(
             get_dict_results(outcome_var_tr, prediction_transformed, model_name,
                                 param, split_date=split_date,
                                 pred_period=global_params['pred_period'],
-                                dynamic=dynamic, 
                                 transformation = global_params['transformation']))
+            print(type(prediction_transformed))
 
             predictions_transformed = predictions_transformed.merge(
                 prediction_transformed.rename(model_name + '_pred_' + str(i)),
                 left_index=True, right_index=True, how='outer')
             # Fecha inmediata anterior a inicio de predicción. Sirve para obtener el valor de la
             # variable en ese momento y revertir transformación
-            initial_date = start - relativedelta(months=1)
             initial_state = outcome_var[initial_date]
-            prediction = descriptive.revert_transformation(prediction_transformed,
-                                                           global_params['transformation'],
-                                                           initial_state, initial_date)
-            #append results to results list
+            prediction = descriptive.revert_transformation(
+                prediction_transformed, global_params['transformation'],
+                initial_state, initial_date)
+            # Append results to results list. If the transformation was a differece, 
+            # the reverted prediction has one overlap with the observed, and that needs
+            # to be removed before computing accuracy.
+            prediction_to_ac = prediction.loc[pd.date_range(start, end)]
             results_l.append(
-            get_dict_results(outcome_var, prediction, model_name, param,
+            get_dict_results(outcome_var, prediction_to_ac, model_name, param,
                                 split_date=split_date,
                                 pred_period=global_params['pred_period'],
-                                dynamic=dynamic,
                                 transformation='levels'))
 
             predictions = predictions.merge(
@@ -98,9 +142,8 @@ def run_model(model_name, model_params, outcome_var, outcome_var_tr, global_para
                 compute_accuracy_scores(outcome_var_tr, prediction_transformed,
                                         False))
             predictions_accuracy.append(
-                compute_accuracy_scores(outcome_var, prediction, False))
+                compute_accuracy_scores(outcome_var, prediction_to_ac, False))
 
-        # Plotting results
         graph_min_date = pd.to_datetime(global_params['pred_start']) - relativedelta(years=1)
         plot_prediction(
             outcome_var_tr, predictions_transformed, model_name,
@@ -116,7 +159,6 @@ def run_model(model_name, model_params, outcome_var, outcome_var_tr, global_para
             ticks='monthly', ticks_freq=2)
 
     return results_l
-
 
 def arima(df, params=None, outcome_var=None):
     '''
@@ -169,6 +211,17 @@ def get_dict_results(outcome_var, prediction, model, param, transformation,
 
     return results
 
+def print_model_param(model_param, model_name):
+    '''
+    Print model params
+    '''
+    description = model_name + ': '
+    for k, val in model_param.items():
+        if isinstance(val, pd.core.series.Series):
+            description += k + ' ' + k + ', '
+        else:
+            description += k + ' ' + str(val) + ', '
+    print(description)
 
     
 def plot_prediction(observed, predicted, model_type, accuracy, var_predicted, model_params,
@@ -213,12 +266,19 @@ def plot_prediction(observed, predicted, model_type, accuracy, var_predicted, mo
             ax.xaxis.set_major_locator(loc)
             for tick in ax.get_xticklabels():
                 tick.set_rotation(90)
+    ## Configure Y ticks: 
+    if observed.mean() < 1000:
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.2f}'))
+    else:
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
     ax.grid()
     # Configurando leyenda. Primero va obserned y después predicciones con accuracy.
+    rmse = [t[0] for t in accuracy]
+    mae = [t[1] for t in accuracy]
     legend = ['observed']
     legend_pred = [col for col in predicted_plot.columns]
-    legend_pred = [col + ' RMSE: {0:.3f}, MAE: {0:.3f}'.format(accuracy[i][0], accuracy[i][1])\
-                    for i, col in enumerate(legend_pred)]
+    legend_pred = [col + " RMSE: {0:,.3f}, MAE: {1:,.3f}".format(rmse[i], mae[i])\
+                   for i, col in enumerate(legend_pred)]
     legend += legend_pred
     if legend_out:
         ax.legend(legend, bbox_to_anchor=(1.04,1), loc="upper left")
@@ -233,3 +293,133 @@ def plot_prediction(observed, predicted, model_type, accuracy, var_predicted, mo
         plt.savefig(save_to)
     plt.show()
     plt.close()
+
+
+def run_model_joint(model_name, model_params, outcome_var, global_params,
+                    plot_extra, outcome_var_tr=None, covars=None):
+    '''
+    '''
+    # Obtener los splits para hacer las predicciones
+    model_dict = {'ARIMA': ARIMA,
+                  'SARIMA': sm.tsa.statespace.SARIMAX,
+                  'ELASTICITY': ELASTICITY}
+    model = model_dict[model_name]
+    results_l = []
+    time_splits = pd.date_range(start=global_params['pred_start'],
+                                end=global_params['pred_end'],
+                                freq=global_params['pred_period'])
+
+    # Correr modelo para cada una de las especificaciones en model params
+    for param in model_params:
+        # Print Header
+        print_model_param(param, model_name)
+        # Algunos modelos no se pueden estimar para toda la serie y necesitan 
+        # de training and testing. Por eso incluyo try en la siguiente parte
+        if model_name in ['ARIMA', 'SARIMA', 'ELASTICITY']:
+            if model_name == 'ELASTICITY':
+                model_obj = model(outcome_var, gdp=covars, **param)
+            else:
+                model_obj = model(outcome_var_tr, **param)
+            results = model_obj.fit()
+
+            if model_name == 'ELASTICITY':
+                outcome_var_name = " ".join(global_params['outcome_col'].split('_'))
+                if plot_extra:
+                    results.plot(outcome_var_name)
+
+        # Plot elasticity and growth rates.
+            else:
+                fitted = results.fittedvalues
+                rmse, mae = compute_accuracy_scores(outcome_var_tr, fitted,
+                                                    False)
+        #append results to results list
+                results_l.append(
+                    get_dict_results(
+                        outcome_var_tr, fitted, model_name, param,
+                            transformation = global_params['transformation']))
+
+        # Crear DF en el que se van a poner todas las predicciones. Tanto para la variable
+        # transformada como para la variable en niveles.
+        predictions_tr = pd.DataFrame(index=outcome_var.index)
+        predictions_tr_acc = []
+        predictions = pd.DataFrame(index=outcome_var.index)
+        predictions_acc = []
+
+        for i, split_date in enumerate(time_splits):
+            if i == len(time_splits) - 1:
+                break
+            #Iniciio de prediccion y final de predicción para obtener predicción
+            start = split_date
+            end = time_splits[i + 1] - relativedelta(months=1)
+            initial_date = start - relativedelta(months=1)
+
+            if model_name in ['ARIMA', 'SARIMA']:
+                model_obj = model(
+                    outcome_var_tr.loc[outcome_var_tr.index < start], **param)
+                results = model_obj.fit()
+                prediction_tr = results.predict(start=start, end=end)
+            #append results to results list
+
+                prediction_tr_to_acc = \
+                    prediction_tr.loc[pd.date_range(start, end, freq='MS')]
+
+                dict_results_tr = get_dict_results(
+                    outcome_var_tr, prediction_tr_to_acc, model_name, param, 
+                    split_date=split_date, pred_period=global_params['pred_period'],
+                    transformation=global_params['transformation'])
+
+                predictions_tr_acc.append((dict_results_tr['rmse'], dict_results_tr['mae']))
+
+                results_l.append(dict_results_tr)
+                predictions_tr = predictions_tr.merge(
+                    prediction_tr.rename(model_name + '_pred_' + str(i)),
+                    left_index=True, right_index=True, how='outer')
+            # Obtener el valor de la variable en el momento previo a la transformaci´øn
+            # usando la fecha inmediata anterior.
+                initial_state = outcome_var[initial_date]
+                prediction = descriptive.revert_transformation(
+                    transformed=prediction_tr, 
+                    applied_transformation=global_params['transformation'],
+                    initial_value=initial_state,
+                    initial_date=initial_date)
+                pred_name = model_name + '_pred_' + str(i)
+
+            elif model_name == 'ELASTICITY':
+                prediction = results.predict(start=start, end=end)
+                pred_name = model_name + '_pred_' + str(i) + ' ELAST {0:.2f}'\
+                            .format(results.elasticity_used)
+            
+            # Append results to results list. If the transformation was a differece, 
+            # the reverted prediction has one overlap with the observed, and that needs
+            # to be removed before computing accuracy.
+            prediction_to_acc = prediction.loc[pd.date_range(start, end, freq='MS')]
+            dict_results = get_dict_results(
+                outcome_var, prediction_to_acc, model_name, param,
+                split_date=split_date, pred_period=global_params['pred_period'],
+                transformation='levels')
+            results_l.append(dict_results)
+
+            predictions = predictions.merge(
+                prediction.rename(pred_name), left_index=True, right_index=True,
+                how='outer')
+
+            # Obtener precisión de cada predicción
+            predictions_acc.append((dict_results['rmse'], dict_results['mae']))
+
+        # Plotting results
+        graph_min_date = pd.to_datetime(global_params['pred_start']) - relativedelta(years=1)
+        if not model_name == 'ELASTICITY':
+            plot_prediction(
+                outcome_var_tr, predictions_tr, model_name,
+                predictions_tr_acc,
+                global_params['outcome_col_transformed'],
+                param, legend_out=True, min_date=graph_min_date,
+                ticks='monthly', ticks_freq=2)
+        plot_prediction(
+            outcome_var, predictions, model_name,
+            predictions_acc,
+            global_params['outcome_col'],
+            param, legend_out=True, min_date=graph_min_date,
+            ticks='monthly', ticks_freq=2)
+
+    return results_l
