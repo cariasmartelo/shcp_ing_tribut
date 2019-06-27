@@ -15,6 +15,40 @@ import zipfile
 import io
 
 #Functions ordered by importance in use
+
+def load_ingresos_fiscales_sat():
+    '''
+    Loads both historic and current fiscal data. Returns DF
+    Output:
+        DF
+    '''
+    df = pd.read_csv('../inputs/ingresos_tributarios_desglosados.csv')
+    df['day'] = 1
+    df.rename(columns={'anio': 'year', 'mes': 'month'}, inplace=True)
+    df['fecha'] = pd.to_datetime(df[['year', 'month', 'day']])
+    df.index = df['fecha']
+    df.drop(['year', 'mes_n', 'month', 'day', 'fecha', 'tiempo', 'rfc_u'], axis=1, inplace=True)
+    df.rename(columns={'iva_regu': 'iva_reg'}, inplace=True)
+    for tax in ['iva', 'isr', 'ieps']:
+        df[tax + '_dev_comp'] = df[tax + '_comp'] + df[tax + '_dev']
+        df[tax + '_dev_comp_reg'] = df[tax + '_dev_comp'] + df[tax + '_reg']
+    df = df.div(1000000)
+    df = df.add_suffix('_(mdp)')
+    inpc = load_inpc()
+    df = df.merge(inpc, left_index=True, right_index=True)
+    df_real = df.div(df['inpc_2018'], axis=0) * 100
+    df_real.drop(['inpc_2018'], axis=1, inplace=True)
+    df_real = df_real.add_suffix('_r')
+    df = pd.concat([df, df_real], axis=1)
+    for tax in ['iva', 'isr', 'ieps']:
+        for expense in ['comp', 'dev', 'reg', 'neto', 'dev_comp', 'dev_comp_reg']:
+            df['_'.join([tax, expense, r'%bruto'])] = (
+                df['_'.join([tax, expense, '(mdp)', 'r'])]
+                    / df['_'.join([tax, 'bruto',  '(mdp)', 'r'])]) * 100
+    df = df.asfreq(freq='MS')
+
+    return df
+
 def load_fiscal_income():
     '''
     Loads both historic and current fiscal data. Returns DF
@@ -34,7 +68,7 @@ def load_fiscal_income():
 
     return fiscal_total
 
-def get_files(inpc_2018=False, pibr_2013=False, fiscal_current=False, fiscal_hist=False):
+def get_files(inpc_2018=False, pibr_2013=False, fiscal_current=False, fiscal_hist=False, igae=False):
     '''
     Run functions to download csv files. If update only, it does not
     download historic fiscal data.
@@ -51,6 +85,8 @@ def get_files(inpc_2018=False, pibr_2013=False, fiscal_current=False, fiscal_his
         download_fiscal_data()
     if fiscal_hist:
         download_fiscal_data(current=False)
+    if igae:
+        download_inegi('igae')
 
 
 def download_inegi(indicator, filepath=None):
@@ -98,6 +134,23 @@ def download_fiscal_data(current=True):
     z.extractall('../inputs/')
     print('Downloaded {} in ../inputs/'.format(key))
 
+
+def load_igae(csv_file ='../inputs/IGAE.csv'):
+    '''
+    Load IGAE as DF.
+    Inputs:
+        csv_file: str
+    Output:
+        DF
+    '''
+    df = pd.read_csv(csv_file)
+    df['fecha'] = pd.to_datetime(df['fecha'])
+    df.set_index(df['fecha'], inplace=True)
+    df.drop('fecha', axis=1, inplace=True)
+    df = df.loc['1990-01-01':]
+
+    return df
+
 def load_inpc(csv_file ='../inputs/inpc_2018.csv'):
     '''
     Load INPC as DF.
@@ -116,7 +169,7 @@ def load_inpc(csv_file ='../inputs/inpc_2018.csv'):
 
 def load_pib_r(csv_file ='../inputs/pibr_2013.csv'):
     '''
-    Load PIB_r as DF.
+    Load PIB_r as DF. It is in (MDP)
     Inputs:
         csv_file: str
     Output:

@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib as mpl
 from statsmodels.tsa.stattools import acf, pacf, adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
@@ -43,8 +44,11 @@ def plot_series(df, cols=None, title=None, subtitle=None, legend=None, save_to=N
         df = df.loc[df.index >= min_date]
     if max_date:
         df = df.loc[df.index <= max_date]
-
     fig, ax = plt.subplots(figsize=figsize)
+    if len(cols) > 10:
+            colormap = plt.cm.Paired
+            colors = [colormap(i) for i in range(len(cols))]
+            ax.set_prop_cycle('color', colors)
     ax.plot(df[cols])
     if not ticks == 'auto':
         if ticks == 'yearly':
@@ -59,6 +63,17 @@ def plot_series(df, cols=None, title=None, subtitle=None, legend=None, save_to=N
             ax.xaxis.set_major_locator(loc)
             for tick in ax.get_xticklabels():
                 tick.set_rotation(90)
+        elif ticks == 'quarterly':
+            loc = mdates.MonthLocator(bymonth=range(1, 13, 3))
+            date_fmt = mdates.DateFormatter('%Y-%m')
+            ax.xaxis.set_major_formatter(date_fmt)
+            ax.xaxis.set_major_locator(loc)
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(90)
+    if (df[cols].mean() < 1000).all():
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.2f}'))
+    else:
+        ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:,.0f}'))
     ax.grid()
     if not legend is False:
         if not legend:
@@ -197,3 +212,56 @@ def plot_acf_pacf(series, lags, col=None, save_to=None):
     if save_to:
         plt.savefig(save_to)
     plt.show()
+
+def cross_tab(df, columns, years, for_plot=False, notna=True, absolute_change=False):
+    '''
+    Make cross tab of columns by month
+    '''
+    meses = {1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+             7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre',
+             12: 'Diciembre'}
+    cross_tab = df.copy()
+    cross_tab['fecha'] = cross_tab.index
+    cross_tab['anio'] = cross_tab['fecha'].map(lambda x: x.year)
+    cross_tab['mes'] = cross_tab['fecha'].map(lambda x: x.month)
+    cross_tab['mes_n'] = cross_tab['mes'].map(meses)
+    meses_orden = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',\
+               'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Total']
+    if for_plot:
+        assert len(columns) == 1, "If for plot, only give one col"
+        cross_tab = cross_tab.loc[cross_tab['anio'].isin(years)].pivot(
+        index='anio', columns='mes_n', values=columns[0])
+        col_order = [month for month in meses_orden if month in cross_tab.columns]
+        cross_tab = cross_tab[col_order]
+        if notna:
+            cross_tab = cross_tab.loc[cross_tab.notna().all(1)]
+        return cross_tab
+
+    else:
+        cross_tab = cross_tab.loc[cross_tab['anio'].isin(years)].pivot_table(
+        index='mes_n', columns='anio', values=columns, margins=True, margins_name='Total')
+        col_order = [month for month in meses_orden if month in cross_tab.index]
+        cross_tab = cross_tab.loc[col_order]
+        if notna:
+            cross_tab = cross_tab.loc[cross_tab.notna().all(1)]
+        to_drop = [(x, 'Total') for x in columns]
+        cross_tab.drop(to_drop, axis=1, inplace=True)
+        for col in columns:
+            if not absolute_change:
+                cross_tab[(col, 'perc_change_(%)')] = (
+                    (cross_tab[(col, years[-1])] / 
+                     cross_tab[(col, years[0])]) - 1) * 100
+            else:
+                cross_tab[(col, 'perc_change_(%)')] = (
+                    cross_tab[(col, years[-1])] - 
+                     cross_tab[(col, years[0])])
+
+        cross_tab = cross_tab[columns]
+
+    def formating(x):
+        if x > 100:
+            return '{:,.0f}'.format(x)
+        else: 
+            return '{:.2f}'.format(x)
+
+    return cross_tab.applymap(formating)

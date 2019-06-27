@@ -7,7 +7,8 @@ INEGI={
                    'jsonxml/INDICATOR/'), '/es/00000/false/BIE/2.0/', '?type=json'],
     'INEGI_TOKEN': 'b95e6c18-9de9-393d-e550-080d2a5e37fe',
     'inpc_2018': '628194',
-    'pibr_2013': '493621'
+    'pibr_2013': '493621',
+    'igae': '496150'
     }
 
 INGRESOS_FISCALES= {

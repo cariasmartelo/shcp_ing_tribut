@@ -57,13 +57,13 @@ def run_model_joint(model_name, all_models_params, outcome_var, global_params,
         # Plot elasticity and growth rates del model mecánico.
             else:
                 fitted = results.fittedvalues
-                rmse, mae = compute_accuracy_scores(outcome_var_tr, fitted,
+                rmse, mae, _, __ = compute_accuracy_scores(outcome_var_tr, fitted,
                                                     False)
         # Append results to results list
                 results_l.append(
                     get_dict_results(
                         outcome_var_tr, fitted, model_name, param,
-                            transformation = global_params['transformation']))
+                            transformation=global_params['transformation']))
 
         # Crear DF en el que se van a poner todas las predicciones. Tanto para la variable
         # transformada como para la variable en niveles.
@@ -202,17 +202,21 @@ def compute_accuracy_scores(observed, predicted, output_dict=True):
     rss = resid ** 2
     accuracy_scores['rmse'] = np.sqrt(rss.mean())
     accuracy_scores['mae'] = abs(resid).mean()
+    accuracy_scores['mape'] = (abs(resid / observed)).mean()
+    accuracy_scores['forecast_biass'] = resid.mean()
     if output_dict:
         return accuracy_scores
     else:
-        return (accuracy_scores['rmse'], accuracy_scores['mae'])
+        return (accuracy_scores['rmse'], accuracy_scores['mae'],
+                accuracy_scores['mape'], accuracy_scores['forecast_biass'])
 
 
 def get_dict_results(outcome_var, prediction, model, param, transformation,
                      split_date=None, pred_period=None, dynamic=None):
     '''
     '''
-    rmse, mae = compute_accuracy_scores(outcome_var, prediction, False)
+    rmse, mae, mape, forecast_biass = compute_accuracy_scores(
+        outcome_var, prediction, False)
     results = {}
     results['model'] = model
     results['param'] = param
@@ -222,6 +226,8 @@ def get_dict_results(outcome_var, prediction, model, param, transformation,
     results['transformation'] = transformation
     results['rmse'] = rmse
     results['mae'] = mae
+    results['mape'] = mape
+    results['forecast_biass'] = forecast_biass
 
     return results
 
