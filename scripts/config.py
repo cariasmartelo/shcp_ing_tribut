@@ -8,7 +8,9 @@ INEGI={
     'INEGI_TOKEN': 'b95e6c18-9de9-393d-e550-080d2a5e37fe',
     'inpc_2018': '628194',
     'pibr_2013': '493621',
-    'igae': '496150'
+    'pibr_2013_sa': '493911',
+    'igae': '496150',
+    'igae_sa': '496216'
     }
 
 INGRESOS_FISCALES= {

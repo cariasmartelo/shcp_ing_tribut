@@ -12,7 +12,8 @@ from dateutil.relativedelta import relativedelta
 import descriptive
 import matplotlib as mpl
 from fbprophet import Prophet
-
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from mechanical import ELASTICITY
 
 def run_model_joint(model_name, all_models_params, outcome_var, global_params,
@@ -23,7 +24,11 @@ def run_model_joint(model_name, all_models_params, outcome_var, global_params,
     model_dict = {'ARIMA': ARIMA,
                   'SARIMA': sm.tsa.statespace.SARIMAX,
                   'ELASTICITY': ELASTICITY,
-                  'PROPHET': Prophet}
+                  'PROPHET': Prophet,
+                  'DT': DecisionTreeRegressor,
+                  'RF': RandomForestRegressor,
+                  'GB': GradientBoostingRegressor}
+
     model = model_dict[model_name]
     model_params = all_models_params[model_name]
     results_l = []
@@ -105,6 +110,7 @@ def run_model_joint(model_name, all_models_params, outcome_var, global_params,
                         results = model_obj.fit()
                     except:
                         print('Could not fit {} for split {}'.format(model_name, split_date))
+                        continue
                     prediction_tr = results.predict(start=start, end=end)
             #append results to results list
 
@@ -174,23 +180,149 @@ def run_model_joint(model_name, all_models_params, outcome_var, global_params,
 
     return results_l
 
-def arima(df, params=None, outcome_var=None):
+
+def run_ml(model_name, all_models_params, outcome_var, global_params,
+           plot_extra, lags, outcome_var_tr=None, covars=None):
     '''
-    Create ARIMA model and fit to data
-    Inputs:
-        df: DF
-        outcome_var: str
-        params: dictionary
-    Output:
-        ARIMA Results Class
+    Run Machine Learning regression.
     '''
-    if isinstance(df, pd.core.series.Series):
-        objective_ts = df
-    else:
-        objective_ts = df[outcome_var]
-    arima_model = ARIMA(objective_ts, **params)
-    results_arima = arima_model.fit()
-    return results_arima
+    # Obtener los splits para hacer las predicciones
+    model_dict = {'DT': DecisionTreeRegressor,
+                  'RF': RandomForestRegressor,
+                  'GB': GradientBoostingRegressor}
+
+    model = model_dict[model_name]
+    model_params = all_models_params[model_name]
+    results_l = []
+    time_splits = pd.date_range(start=global_params['pred_start'],
+                                end=global_params['pred_end'],
+                                freq=global_params['pred_period'])
+
+    # Correr modelo para cada una de las especificaciones en model params
+    for param in model_params:
+        # Print Header
+        print_model_param(param, model_name)
+        
+        # Crear DF en el que se van a poner todas las predicciones. Tanto para la variable
+        # transformada como para la variable en niveles.
+        predictions_tr = pd.DataFrame(index=outcome_var.index)
+        # Esta lista se usará para los labels del plot
+        predictions_tr_acc = []
+        predictions = pd.DataFrame(index=outcome_var.index)
+        # Esta lista se usará para los labels del plot
+        predictions_acc = []
+
+        # Creamos un DF con los lags
+        lagged_df = create_lagged_features(outcome_var_tr, lags)
+
+        for i, split_date in enumerate(time_splits):
+            # No correr para último split
+            if i == len(time_splits) - 1:
+                break
+            #Iniciio de prediccion y final de predicción para obtener predicción
+            start = split_date
+            end = time_splits[i + 1] - relativedelta(months=1)
+            # Para revertir transformación
+            initial_date = start - relativedelta(months=1)
+
+            # Creamos train, test y prediction
+            X_train = lagged_df.loc[lagged_df.index<start]
+            X_forecast = lagged_df.loc[start]
+            y_train = outcome_var_tr.loc[X_train.index]
+            y_test = outcome_var_tr[pd.date_range(start, end, freq='MS')]
+
+            # Creamos modelo y hacemos fit
+            regr = model(**param)
+            regr.fit(X_train, y_train)
+
+            # De los parametros globales, obtenemos periodos a predecir
+            steps = int(global_params['pred_period'].replace('MS', ''))
+            # Llamamos función para predecir de manera recursiva
+            prediction_tr = recursivelly_predict(regr, X_forecast, steps)
+            # Asignamos el índice de la serie de predicción
+            prediction_tr.index = y_test.index
+            # Obtenemos resultados de precisión
+            dict_results_tr = get_dict_results(
+                outcome_var_tr, prediction_tr, model_name, param, 
+                split_date=split_date, pred_period=global_params['pred_period'],
+                transformation=global_params['transformation'])
+            # Incluimos RMSE MAE en la lista que sirve para los labels del plor.
+            predictions_tr_acc.append((dict_results_tr['rmse'], dict_results_tr['mae']))
+            # Incluimos los resultados en la lista de resultados
+            results_l.append(dict_results_tr)
+            # Obtenemos nombre de la predicción
+            pred_name = model_name + '_pred_' + str(i)
+            # Hacemos merge de la predicción con el DF de predicciones
+            predictions_tr = predictions_tr.merge(
+                prediction_tr.rename(pred_name),
+                left_index=True, right_index=True, how='outer')
+            # Obtener el valor de la variable en el momento previo a la transformaci´øn
+            # usando la fecha inmediata anterior.
+            initial_state = outcome_var[initial_date]
+            # Revertimos transformación y creamos variable de predicción en niveles
+            prediction = descriptive.revert_transformation(
+                transformed=prediction_tr, 
+                applied_transformation=global_params['transformation'],
+                initial_value=initial_state,
+                initial_date=initial_date)
+
+            # Append results to results list. If the transformation was a differece, 
+            # the reverted prediction has one overlap with the observed, and that needs
+            # to be removed before computing accuracy.
+            prediction_to_acc = prediction.loc[pd.date_range(start, end, freq='MS')]
+            dict_results = get_dict_results(
+                outcome_var, prediction_to_acc, model_name, param,
+                split_date=split_date, pred_period=global_params['pred_period'],
+                transformation='levels')
+
+            # Incluimos los resultados en la lista de resultados
+            results_l.append(dict_results)
+            # Hacemos merge de la predicción con el DF de predicciones
+            predictions = predictions.merge(
+                prediction.rename(pred_name), left_index=True, right_index=True,
+                how='outer')
+
+            # Obtener precisión de cada predicción
+            predictions_acc.append((dict_results['rmse'], dict_results['mae']))
+
+        # Plotting results
+
+        # return (predictions, predictions_tr)
+        graph_min_date = pd.to_datetime(global_params['pred_start']) - relativedelta(years=1)
+
+        plot_prediction(
+            outcome_var_tr, predictions_tr, model_name,
+            predictions_tr_acc,
+            global_params['outcome_col_transformed'],
+            param, legend_out=True, min_date=graph_min_date,
+            ticks='monthly', ticks_freq=2)
+
+        plot_prediction(
+            outcome_var, predictions, model_name,
+            predictions_acc,
+            global_params['outcome_col'],
+            param, legend_out=True, min_date=graph_min_date,
+            ticks='monthly', ticks_freq=2)
+
+    return results_l
+
+# def arima(df, params=None, outcome_var=None):
+#     '''
+#     Create ARIMA model and fit to data
+#     Inputs:
+#         df: DF
+#         outcome_var: str
+#         params: dictionary
+#     Output:
+#         ARIMA Results Class
+#     '''
+#     if isinstance(df, pd.core.series.Series):
+#         objective_ts = df
+#     else:
+#         objective_ts = df[outcome_var]
+#     arima_model = ARIMA(objective_ts, **params)
+#     results_arima = arima_model.fit()
+#     return results_arima
 
 def compute_accuracy_scores(observed, predicted, output_dict=True):
     '''
@@ -251,7 +383,48 @@ def prophet_make_future_dataframe(model_obj, pred_period):
     freq = pred_period[-2:]
     periods = int(pred_period[:-2])
     return model_obj.make_future_dataframe(periods=periods, freq=freq)
+
+
+def create_lagged_features(serie, lags):
+    '''
+    From a Pandas Series, make a DataFrame of lags.
+    Inputs:
+        outcome_var_tr: pd.Series
+        lags: int
+    Output:
+        DF
+    '''
+    # creamos DF vacio con el mismo índice que la serie
+    lagged_df = pd.DataFrame(index=serie.index)
+    # Crear cada uno de los lags en el DataFrame usando el método shift.
+    for lag in range(1, lags + 1):
+        lagged_df['lag_{}'.format(lag)] = serie.shift(lag)
+    # Nos quedamos con lo que no es NA
+    lagged_df = lagged_df.loc[lagged_df.notna().all(1)]
+    return lagged_df
+
+def recursivelly_predict(regr, X_forecast, steps):
+    '''
+    Recursivelly predicts y with the regr Machine learning.
+    inputs:
+        x_forecast: Pandas Series
+    output:
+        Pandas Series
+    '''
+    # Convertimos X_forecast en un numpy array, lo cual hará más facil el proceso recursivo. El reshape es necesario
+    # Para el predict
+    prediction_tr = []
+    X_forecast_rec = np.array(X_forecast).reshape(1, -1)
+    while steps > 0:
+        y_pred = regr.predict(X_forecast_rec)
+        prediction_tr.append(y_pred[0])
+        X_forecast_rec = np.insert(X_forecast_rec, 0, y_pred[0])
+        X_forecast_rec = X_forecast_rec[:-1]
+        X_forecast_rec = X_forecast_rec.reshape(1, -1)
+        steps -= 1
+    return pd.Series(prediction_tr) 
     
+
 def plot_prediction(observed, predicted, model_type, accuracy, var_predicted, model_params,
                     save_to=None, min_date=None, max_date=None, ticks='auto', ticks_freq=1, 
                     figsize=(9, 7), legend_out=True):
@@ -314,7 +487,7 @@ def plot_prediction(observed, predicted, model_type, accuracy, var_predicted, mo
         ax.legend(legend)
 
     #Título
-    legible_var_name = " ".join(var_predicted.split('_')).upper()
+    legible_var_name = " ".join(var_predicted.replace('mdp', 'mdp 2019').split('_')).upper()
     ax.set_title('Prediction of {}'.format(legible_var_name))
 
     if save_to:

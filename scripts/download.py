@@ -13,7 +13,6 @@ import requests
 import config
 import zipfile
 import io
-
 #Functions ordered by importance in use
 
 def load_ingresos_fiscales_sat():
@@ -36,8 +35,8 @@ def load_ingresos_fiscales_sat():
     df = df.add_suffix('_(mdp)')
     inpc = load_inpc()
     df = df.merge(inpc, left_index=True, right_index=True)
-    df_real = df.div(df['inpc_2018'], axis=0) * 100
-    df_real.drop(['inpc_2018'], axis=1, inplace=True)
+    df_real = df.div(df['inpc'], axis=0) * 100
+    df_real.drop(['inpc'], axis=1, inplace=True)
     df_real = df_real.add_suffix('_r')
     df = pd.concat([df, df_real], axis=1)
     for tax in ['iva', 'isr', 'ieps']:
@@ -60,15 +59,17 @@ def load_fiscal_income():
     fiscal_total = pd.concat([fiscal_hist, fiscal_current])
     inpc = load_inpc()
     fiscal_total = fiscal_total.merge(inpc, left_index=True, right_index=True)
-    fiscal_real = fiscal_total.div(fiscal_total['inpc_2018'], axis=0) * 100
-    fiscal_real.drop('inpc_2018', axis=1, inplace=True)
+    fiscal_real = fiscal_total.div(fiscal_total['inpc'], axis=0) * 100
+    fiscal_real.drop('inpc', axis=1, inplace=True)
     fiscal_real = fiscal_real.add_suffix('_r')
     fiscal_total = pd.concat([fiscal_total, fiscal_real], axis=1)
     fiscal_total = fiscal_total.asfreq(freq='MS')
 
     return fiscal_total
 
-def get_files(inpc_2018=False, pibr_2013=False, fiscal_current=False, fiscal_hist=False, igae=False):
+def get_files(inpc_2018=False, pibr_2013=False, pibr_2013_sa=False,
+              fiscal_current=False, fiscal_hist=False, igae=False,
+              igae_sa=False):
     '''
     Run functions to download csv files. If update only, it does not
     download historic fiscal data.
@@ -81,12 +82,16 @@ def get_files(inpc_2018=False, pibr_2013=False, fiscal_current=False, fiscal_his
         download_inegi('inpc_2018')
     if pibr_2013:
         download_inegi('pibr_2013')
+    if pibr_2013_sa:
+        download_inegi('pibr_2013_sa')
     if fiscal_current:
         download_fiscal_data()
     if fiscal_hist:
         download_fiscal_data(current=False)
     if igae:
         download_inegi('igae')
+    if igae_sa:
+        download_inegi('igae_sa')
 
 
 def download_inegi(indicator, filepath=None):
@@ -124,6 +129,9 @@ def download_fiscal_data(current=True):
     Inputs:
         current: str
     '''
+    filepath = '../inputs/'
+    if not os.path.exists(filepath):
+        os.mkdir(filepath)
     if current:
         key = 'INGRESO_GASTO_SHCP_actual'
     else:
@@ -131,11 +139,11 @@ def download_fiscal_data(current=True):
     url = config.INGRESOS_FISCALES[key]
     r = requests.get(url)
     z = zipfile.ZipFile(io.BytesIO(r.content))
-    z.extractall('../inputs/')
+    z.extractall(filepath)
     print('Downloaded {} in ../inputs/'.format(key))
 
 
-def load_igae(csv_file ='../inputs/IGAE.csv'):
+def load_igae(csv_file=None, sa=False):
     '''
     Load IGAE as DF.
     Inputs:
@@ -143,6 +151,14 @@ def load_igae(csv_file ='../inputs/IGAE.csv'):
     Output:
         DF
     '''
+    if not csv_file:
+        if not sa:
+            varname = 'igae'
+        else:
+            varname = 'igae_sa'
+
+        csv_file ='../inputs/' + varname + '.csv'
+
     df = pd.read_csv(csv_file)
     df['fecha'] = pd.to_datetime(df['fecha'])
     df.set_index(df['fecha'], inplace=True)
@@ -163,18 +179,29 @@ def load_inpc(csv_file ='../inputs/inpc_2018.csv'):
     df['fecha'] = pd.to_datetime(df['fecha'])
     df.set_index(df['fecha'], inplace=True)
     df.drop('fecha', axis=1, inplace=True)
+    # Convirtiendo el INPC a la base del último dato.
+    df = df.div(df.loc[df.index.max()]) * 100
     df = df.loc['1990-01-01':]
+    df = df.rename(columns={'inpc_2018': 'inpc'})
 
     return df
 
-def load_pib_r(csv_file ='../inputs/pibr_2013.csv'):
+def load_pib_r(csv_file=None, sa=False):
     '''
-    Load PIB_r as DF. It is in (MDP)
+    Load PIB_r as DF. It is in (MDP). If sa, loads seasonally adjusted.
     Inputs:
         csv_file: str
     Output:
         DF
     '''
+    if not csv_file:
+        if not sa:
+            varname = 'pibr_2013'
+        else:
+            varname = 'pibr_2013_sa'
+
+        csv_file ='../inputs/' + varname + '.csv'
+
 
     df = pd.read_csv(csv_file)
     # Fecha es formato 'Y/Q'
@@ -185,18 +212,20 @@ def load_pib_r(csv_file ='../inputs/pibr_2013.csv'):
     df['day'] = 1
     df['fecha'] = pd.to_datetime(df[['year', 'month', 'day']])
     df.set_index(df['fecha'], inplace=True)
-    df = df['pibr_2013']
+    df = df[varname]
     df = df.loc['1989-01-01':]
     df = df.asfreq(freq='QS')
     # Insert one extra quarter with NaN values
     new_quarter = df.index.max() + relativedelta(months = 3)
     df.loc[new_quarter] = np.NaN
     # Resample DF into months, using forward fill.
+    # Adds months that are between Jan and April
     df = (df.resample('MS').pad()).to_frame()
-    # Convert to real pesos of 2018 dividing by inpc(base=2018) of 2013-12-01
+    # # Convert to real pesos of 2018 dividing by inpc(base=2018) of 2013-12-01
     inpc = load_inpc()
-    inf_inv_2018_2013 = float(inpc.loc['2013-12-01'])
-    df['pibr_2018'] = (df['pibr_2013'] / inf_inv_2018_2013) * 100
+    inf_inv_2019_2013 = float(inpc.loc['2013-12-01'])
+    varname_2019 = varname.replace('13', '19')
+    df[varname_2019] = (df[varname] / inf_inv_2019_2013) * 100
     df = df.asfreq(freq='MS')  
 
     return df
