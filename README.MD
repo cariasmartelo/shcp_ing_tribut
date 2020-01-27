@@ -41,8 +41,8 @@ Each of the folders has the following information:
 - /Presentaciones_prediccion Power point presentations of the whole project.
 - /reporte Final repor. Includes LaTeX (.tex) file, other files (.aux, .log y .out) and pdf, as well as images.
 - /results Results of estimations. csv files imported by Pipeline_analyze.ipynb
-•	Calendario_lif.pdf Calendar of Federal Income Budget of 2019.
-•	Requirementes.txt: Required Python libraries to run analysis.
+- Calendario_lif.pdf Calendar of Federal Income Budget of 2019.
+- Requirementes.txt: Required Python libraries to run analysis.
 
 
 
