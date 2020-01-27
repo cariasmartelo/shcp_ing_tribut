@@ -22,29 +22,27 @@ Each of the folders has the following information:
 	- grid.py Auxiliary script  that defines the specifications to test, depending on the size of grid: small, medium or big.  Called by Jupyter Notebook that does predictions. 
 	- dashboard.py: Script for plotly dashboard.
 	- dashboard_aux.py: Auxiliary script for plotly dashboard.
-JUPYTER NOTEBOOKS (.ipynb):
-•	download.ipynb: Jupyter notebook para hacer descarga de datos de INEGI, BANXICO, FED y Datos abiertos  (Estadísticas oportunas)
-•	Estimacion_marco_macro.ipynb: Jupyter notebook con estimaciones del marco macro mexicano y de Estados Unidos.
-•	Estimaciones_cierre.ipybn: Jupyter notebook con estimaciones finales de ingresos tributarios. Usa modelos seleccionados por Pipeline_analyze.ipynb
-•	Machote_eficiencia_recaudatoria.ipynb: Jupyter notebook Machote para hacer análisis de eficiencia recaudatoria, así como cambio anual en ingresos tributarios, cambio en compensaciones y predecir el PIB.
-•	Pipeline_descriptive.ipynb: Jupyter notebook con descripción de variables recaudatorias, análisis de estacionariedad y descomposición en ciclo y tendencia.
-•	Pipeline_multivariate_descriptive.ipynb: Jupyter notebook con análisis descriptivo de recaudación y otras variables. Se analiza comportamiento de variables Macro de USA y de México.
-•	Pipeline_univariate_predict.ipynb Jupyter notebook para hacer predicciones de ingresos tributarios sin covariables. Fueron las primeras estimaciones hechas. No son las estimaciones usadas en el reporte final.
-•	Pipeline_multivariate_predict.ipynb: Jupyter notebook donde se corren todas las estimaciones. Este es el notebook que utiliza el script models_multivariate.py de manera importante, y estima todos los modelos para cada uno de los cortes transversales. En este notebook se producen los resultados.
-•	Pipeline_analyze.ipynb Jupyter notebook donde se leen los csv de resultados y se obtienen los mejores modelos. Se hacen gráficas de mejores modelos y se seleccionan los modelos que después se utilizan en estimaciones de cierre.
- 	SUBCARPETAS
-•	/reportes_eficiencia: Carpeta con reporte de eficiencia recaudatoria (Versiones estáticas del Machote de Eficiencia)
-•	/assets: Carpeta con imágenes del dashboard
-•	/estimaciones: Estimaciones de cierre de los ingresos tributarios
-/figures Gráficas generadas en el análisis de recaudación. Tiene gráficas que resultaron de Machote_multivariado.ipybn
-/Presentaciones eficiencia Presentaciones de eficiencia recaudatoria
-/Presentaciones_prediccion Presentaciones del proyecto de predicción. Incluye la presentación de avance con el BID, presentación inicial con Víctor Higo y presentación final.
-/reporte Carpeta con reporte final. Incluye archivo LaTeX (.tex), archivos intermedios (.aux, .log y .out) y archivo pdf, así como carpeta con imágenes.
-/results Carpeta con resultados de las estimaciones realizadas. Son archivos .csv que después son importados en el Jupyter Notebook Pipeline_analyze.ipynb
-•	Calendario_lif.pdf Calendario de la Ley de Ingresos de 2019
-•	README.md archivo de texto similar a este para si presentación en GitHub.
-•	Cronograma.xlsx Aproximación del cronograma seguido en el proyecto.
-•	Requirementes.txt: Liberias que se requieren para correr todas las funciones
+#### JUPYTER NOTEBOOKS (.ipynb):
+	- download.ipynb: Jupyter notebook to download data from INEGI, BANXICO, FED y Datos abiertos using API
+	- Estimacion_marco_macro.ipynb: Jupyter notebook with forecasts of Mexican and US Macroeconomic variables.
+	- Estimaciones_cierre.ipybn: Jupyter notebook con with final estimations of tax revenue. Uses models selected by Pipeline_analyze.ipynb
+	- Machote_eficiencia_recaudatoria.ipynb: Jupyter notebook to do monthly analysis of tax revenue and forecast GDP.
+	- Pipeline_descriptive.ipynb: Jupyter notebook con visualization of tax revenue, estationarity analysis and tend decomposition of variables.
+	- Pipeline_multivariate_descriptive.ipynb: Jupyter notebook with descriptive analysis of how multiple macroeconomic variables relate.
+	- Pipeline_univariate_predict.ipynb Jupyter notebook to predict fiscal revenue without other enogenous variables.
+	- Pipeline_multivariate_predict.ipynb: Jupyter notebook to run all moels. Heavily relies on models_multivariate.py and estimates all models for each of the time horizons. This notebook outputs main results. \
+	- Pipeline_analyze.ipynb Jupyter notebook to a analyze results.
+#### Subfolders
+	- /reportes_eficiencia: Reports with analysis of efficiency of tax collection
+	- /assets: Dashboard images
+	- /estimaciones: Final estimations of tax revenue.
+	- /figures Graphs that describe tax revenue. Many created in Machote_multivariado.ipybn
+- /Presentaciones eficiencia Power point presentations of tax collection efficiency.
+- /Presentaciones_prediccion Power point presentations of the whole project.
+- /reporte Final repor. Includes LaTeX (.tex) file, other files (.aux, .log y .out) and pdf, as well as images.
+- /results Results of estimations. csv files imported by Pipeline_analyze.ipynb
+•	Calendario_lif.pdf Calendar of Federal Income Budget of 2019.
+•	Requirementes.txt: Required Python libraries to run analysis.
 
 
 
