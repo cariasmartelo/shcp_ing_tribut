@@ -1,31 +1,20 @@
-e
-Organización de la carpeta del proyecto de predicción de ingresos tributarios. De forma general, la carpeta se organiza de la siguiente manera:
+# Forecasting Fiscal Revenue in Mexico
 
- 
+Code of project to forecast fiscal revenue in Mexico using machine learning and econometric methods. This was produced during my 2019 summer internshp at the Mexican Ministry of Finance, at the Fiscal Income Policy Unit. The Ministry of Finance is in constant needs to forecast fiscal revenue for different time horizons. First, it is essential to estimate future cash flow and adjust accordingly. Second, the unit needs an internal approximate of the total revenue that will be achieved by end of the year. Third, the Ministry needs to submit the Federal Income Budget to the House of Representatives and forecasting revenue is a core component of it.
 
 
-Descripción de contenido
-El contenido específico de cada carpeta se describe a continuación:
-/curso python: Material que hemos cubierto en el curso de Python los martes y jueves.
-/inputs: Carpeta con insumos para predicción. Todo lo que se encuentra en esta carpeta, en el primer nivel, fue descargado a mano. Lo que fue descargado y es descargado de forma automática se encuentra en la subcarpeta downloads.
-•	variables.xlsx Descripción de las variables que se han descargado y el método de descarga.
-•	tasas_impuestos.xlsx: Excel con tasas históricas de IVA, ISRP e ISRE
-•	semana_santa.xlsx Histórico anual con los meses en los que ha caído semana santa
-•	semana_santa_fin_marzo.xlsx Histórico con los años en los que Semana Santa ha caído en los últimos días de marzo. Relevante porque en esos años, parte de la declaración del ISRE se captura entonces en abril.
-•	ingresos_tributarios_desglosados.xlsx: Excel con ingresos tributarios brutos. Fue construido por UPIT y lo actualicé con los últimos datos brutos.
-•	ingresos_tributarios_desglosados_updated.xlsx: Excel con ingresos tributarios brutos. Tiene dato actualizado hasta junio. Fue construido por UPIT y lo actualicé con los últimos datos brutos.
-•	calendario_lif.xlsx: Excel con el calendario de la Ley de Ingresos de la Federación desde 201t hasta 2019.
-•	ajustes.xlsx Ajustes que Paola y Mariana realizan a las series de ingresos para predecir (Ajustan eliminando montos que no corresponden. Por ejemplo, para unos años, eliminan del ISR lo que resultó de un programa de repatriación.)
-•	calendario_lif.pdf: PDF del calendario de la LIF de 2019
-•	/bases_iniciales: Material inicial compartido por la UPIT. Se encuentran do files, archivos de ingresos brutos y cálculos de elasticidades.
-•	/cuadros_preliminares: Carpeta con los cuadros preliminares de la recaudación que son compartidos por el SAT en los primeros días del mes.
-•	/downloads Carpeta con los CSV descargados de forma automática del INEGI, BANXICO, DATOS ABIERTOS y FED. El folder se llena al correr el Jupyter Notebook download.ipynb de la carpeta ../scripts/
-/Scripts: Carpeta con scripts de Python y con Jupyter Notebooks ejecutores.
-SCRIPTS (Archivos con terminación .py):
-•	config.py Script con los datos necesarios para las descargas de las API's. Incluye datos como token de descarga, identificadores de las variables a descargar, y nombres de las variables. Es usado por el script download.py.
-•	download.py Script con funciones para descargar los datos y para cargar los datos a Pandas DataFrame. El script depende de config.py principalmente. En la parte de descarga se concentra en 4 funciones: get_files_inegi(), get_files_datos_abiertos(), get_files_banxico(), y get_files_fed(). Cada una de ellas, a su vez, llama a otra función que es la que se conecta con la API. Las funciones de carga son varias, y todas comparten varios puntos en común: Leen un archivo excel o csv, y retornan un Pandas DataFrame. Algunas retornan el DataFrame con valores nominales y reales (load_ingresos_fiscales..., load_balanza_comercial...) otras pueden convertir datos trimestrales a mensuales si se especifica (load_pib), otras solo cargan indicadores de INEGI, de BANXICO o de la FED. Finalmente, hay dos funciones que sirven para extraer datos de los cuadros de SHCP: extract_from_cuadro_preliminar y extract_from_cuadro_isr_iva_ieps.
-•	descriptive.py Script que contiene funciones esenciales para describir los datos y transformar los datos. Las funciones principales son:
-o	Plot series. Ampliamente usada para graficar en varios de los Jupyter Notebooks.
+## Description
+Each of the folders has the following information:
+- /curso python: Material that I used to teach introductory Python during Tuesdays and Thursdays.
+- /inputs: Initial inputs for prediction. It has raw data downloaded initially and a subfolder
+	- variables.xlsx Description of variables and download method.
+	- /cuadros_preliminares: Summary statistics of tax revenue.
+	- /downloads Folder with all downloads that are done using API (INEGI, Mexican Central Bank, FRED) and are updated monthly. The folder is filled up by running Jupyter Notebook download.ipynb in ../scripts/
+- /Scripts: Folder with Python scripts and Jupyter Notebooks to produce analysis and execute code.
+	- config.py Script with API's keys. Called by download.py.
+	- download.py Script with functions to download data form API's and load to Pandas DataFrames. Script uses config.py as main source. 4 key functions: get_files_inegi(), get_files_datos_abiertos(), get_files_banxico(), and get_files_fed(). Each one downloads data form specific API. Functions to load data are many but share common structure: Read excel or csv file, y return Pandas DataFrame. Some return nominal and real values (load_ingresos_fiscales..., load_balanza_comercial...), other change the frequency of data from quartely to monthly (load_pib), and others only load indicators of INEGI,  BANXICO o de FED. Finally, two functions work to extract data from internal excel files: extract_from_cuadro_preliminar y extract_from_cuadro_isr_iva_ieps.
+	- descriptive.py Main functions to describe and transform data. Las funciones principales son:
+		- Plot series. Ampliamente usada para graficar en varios de los Jupyter Notebooks.
 o	transformation: Para hacer transformaciones a las variables.
 o	revert_transformation: Para revertir transformaciones
 o	cross_tab: Para hacer tablas comparativas por año de variables. Sirve para ver comportamiento de compensaciones y devoluciones, de ISR bruto, etc.
