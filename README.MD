@@ -21,7 +21,7 @@ Each of the folders has the following information:
 	- models_multivariate.py: Script with functions to run estimations. The main function that wraps all the sub functions is run_predictions. It takes several arguments, including the name of the model to train, the list of parameters, the initial and end dates of predictions, the DF, a list with the endogenous variables. This function receives the features, creates a DataFrame with the exogenous variables, and loops over each of the specifications in the list of parameters to run a predictive model. Depending on the name of the model that is set, it will use the functions predict_with_econometric_moder or predict_with_ml_model, which are similar in the input, in the processing of exogenous and enogenous variables and on dividing the data between training and tesitng, but different in the prediction step. While the econometric models had already a predict method included, SciKit Learning does not have one, and we needed to create our own method to do predictions recursively.
 	- grid.py Auxiliary script  that defines the specifications to test, depending on the size of grid: small, medium or big.  Called by Jupyter Notebook that does predictions. 
 	- dashboard.py: Script for plotly dashboard.
-	- dashboard_aux.py: Auxiliary script for plotly dashboard.
+	- dashboard_aux.py: Auxiliary script for plotly dashboard.\\
 JUPYTER NOTEBOOKS (.ipynb):
 	- download.ipynb: Jupyter notebook to download data from INEGI, BANXICO, FED y Datos abiertos using API
 	- Estimacion_marco_macro.ipynb: Jupyter notebook with forecasts of Mexican and US Macroeconomic variables.
