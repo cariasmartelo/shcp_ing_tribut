@@ -4,12 +4,13 @@ Code of project to forecast fiscal revenue in Mexico using machine learning and 
 
 
 ## Description of the Repository
-Each of the folders has the following information:
-- /curso python: Material that I used to teach introductory Python during Tuesdays and Thursdays.
+
+### Inputs
 - /inputs: Initial inputs for prediction. It has raw data downloaded initially and a subfolder
 	- variables.xlsx Description of variables and download method.
 	- /cuadros_preliminares: Summary statistics of tax revenue.
 	- /downloads Folder with all downloads that are done using API (INEGI, Mexican Central Bank, FRED) and are updated monthly. The folder is filled up by running Jupyter Notebook download.ipynb in ../scripts/
+### Scripts and Jupyter Notebooks
 - /Scripts: Folder with Python scripts and Jupyter Notebooks to produce analysis and execute code.
 	- config.py Script with API's keys. Called by download.py.
 	- download.py Script with functions to download data form API's and load to Pandas DataFrames. Script uses config.py as main source. 4 key functions: get_files_inegi(), get_files_datos_abiertos(), get_files_banxico(), and get_files_fed(). Each one downloads data form specific API. Functions to load data are many but share common structure: Read excel or csv file, y return Pandas DataFrame. Some return nominal and real values (load_ingresos_fiscales..., load_balanza_comercial...), other change the frequency of data from quartely to monthly (load_pib), and others only load indicators of INEGI,  BANXICO o de FED. Finally, two functions work to extract data from internal excel files: extract_from_cuadro_preliminar y extract_from_cuadro_isr_iva_ieps.
@@ -35,10 +36,15 @@ Each of the folders has the following information:
 		- /assets: Dashboard images
 		- /estimaciones: Final estimations of tax revenue.
 		- /figures Graphs that describe tax revenue. Many created in Machote_multivariado.ipybn
+
+### Results, report and presentations
 - /Presentaciones eficiencia Power point presentations of tax collection efficiency.
 - /Presentaciones_prediccion Power point presentations of the whole project.
 - /reporte Final repor. Includes LaTeX (.tex) file, other files (.aux, .log y .out) and pdf, as well as images.
 - /results Results of estimations. csv files imported by Pipeline_analyze.ipynb
+
+### Other
+- /curso python: Material that I used to teach introductory Python during Tuesdays and Thursdays.
 - Calendario_lif.pdf Calendar of Federal Income Budget of 2019.
 - Requirementes.txt: Required Python libraries to run analysis.
 
