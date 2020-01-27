@@ -22,7 +22,7 @@ Each of the folders has the following information:
 	- grid.py Auxiliary script  that defines the specifications to test, depending on the size of grid: small, medium or big.  Called by Jupyter Notebook that does predictions. 
 	- dashboard.py: Script for plotly dashboard.
 	- dashboard_aux.py: Auxiliary script for plotly dashboard.
-#### JUPYTER NOTEBOOKS (.ipynb):
+### JUPYTER NOTEBOOKS (.ipynb):
 	- download.ipynb: Jupyter notebook to download data from INEGI, BANXICO, FED y Datos abiertos using API
 	- Estimacion_marco_macro.ipynb: Jupyter notebook with forecasts of Mexican and US Macroeconomic variables.
 	- Estimaciones_cierre.ipybn: Jupyter notebook con with final estimations of tax revenue. Uses models selected by Pipeline_analyze.ipynb
@@ -32,7 +32,7 @@ Each of the folders has the following information:
 	- Pipeline_univariate_predict.ipynb Jupyter notebook to predict fiscal revenue without other enogenous variables.
 	- Pipeline_multivariate_predict.ipynb: Jupyter notebook to run all moels. Heavily relies on models_multivariate.py and estimates all models for each of the time horizons. This notebook outputs main results. \
 	- Pipeline_analyze.ipynb Jupyter notebook to a analyze results.
-#### Subfolders
+### Subfolders
 	- /reportes_eficiencia: Reports with analysis of efficiency of tax collection
 	- /assets: Dashboard images
 	- /estimaciones: Final estimations of tax revenue.
