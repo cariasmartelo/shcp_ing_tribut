@@ -21,8 +21,7 @@ Each of the folders has the following information:
 	- models_multivariate.py: Script with functions to run estimations. The main function that wraps all the sub functions is run_predictions. It takes several arguments, including the name of the model to train, the list of parameters, the initial and end dates of predictions, the DF, a list with the endogenous variables. This function receives the features, creates a DataFrame with the exogenous variables, and loops over each of the specifications in the list of parameters to run a predictive model. Depending on the name of the model that is set, it will use the functions predict_with_econometric_moder or predict_with_ml_model, which are similar in the input, in the processing of exogenous and enogenous variables and on dividing the data between training and tesitng, but different in the prediction step. While the econometric models had already a predict method included, SciKit Learning does not have one, and we needed to create our own method to do predictions recursively.
 	- grid.py Auxiliary script  that defines the specifications to test, depending on the size of grid: small, medium or big.  Called by Jupyter Notebook that does predictions. 
 	- dashboard.py: Script for plotly dashboard.
-	- dashboard_aux.py: Auxiliary script for plotly dashboard.\\
-JUPYTER NOTEBOOKS (.ipynb):
+	- dashboard_aux.py: Auxiliary script for plotly dashboard
 	- download.ipynb: Jupyter notebook to download data from INEGI, BANXICO, FED y Datos abiertos using API
 	- Estimacion_marco_macro.ipynb: Jupyter notebook with forecasts of Mexican and US Macroeconomic variables.
 	- Estimaciones_cierre.ipybn: Jupyter notebook con with final estimations of tax revenue. Uses models selected by Pipeline_analyze.ipynb
@@ -32,11 +31,10 @@ JUPYTER NOTEBOOKS (.ipynb):
 	- Pipeline_univariate_predict.ipynb Jupyter notebook to predict fiscal revenue without other enogenous variables.
 	- Pipeline_multivariate_predict.ipynb: Jupyter notebook to run all moels. Heavily relies on models_multivariate.py and estimates all models for each of the time horizons. This notebook outputs main results. \
 	- Pipeline_analyze.ipynb Jupyter notebook to a analyze results.
-### Subfolders
-	- /reportes_eficiencia: Reports with analysis of efficiency of tax collection
-	- /assets: Dashboard images
-	- /estimaciones: Final estimations of tax revenue.
-	- /figures Graphs that describe tax revenue. Many created in Machote_multivariado.ipybn
+		- /reportes_eficiencia: Reports with analysis of efficiency of tax collection
+		- /assets: Dashboard images
+		- /estimaciones: Final estimations of tax revenue.
+		- /figures Graphs that describe tax revenue. Many created in Machote_multivariado.ipybn
 - /Presentaciones eficiencia Power point presentations of tax collection efficiency.
 - /Presentaciones_prediccion Power point presentations of the whole project.
 - /reporte Final repor. Includes LaTeX (.tex) file, other files (.aux, .log y .out) and pdf, as well as images.
