@@ -22,7 +22,7 @@ Each of the folders has the following information:
 	- grid.py Auxiliary script  that defines the specifications to test, depending on the size of grid: small, medium or big.  Called by Jupyter Notebook that does predictions. 
 	- dashboard.py: Script for plotly dashboard.
 	- dashboard_aux.py: Auxiliary script for plotly dashboard.
-### JUPYTER NOTEBOOKS (.ipynb):
+JUPYTER NOTEBOOKS (.ipynb):
 	- download.ipynb: Jupyter notebook to download data from INEGI, BANXICO, FED y Datos abiertos using API
 	- Estimacion_marco_macro.ipynb: Jupyter notebook with forecasts of Mexican and US Macroeconomic variables.
 	- Estimaciones_cierre.ipybn: Jupyter notebook con with final estimations of tax revenue. Uses models selected by Pipeline_analyze.ipynb
